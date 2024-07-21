@@ -7,13 +7,13 @@ import java.util.Base64; // 导入用于Base64编码和解码的类
 
 public class DatabaseConnector {
     // 控制mysql的数据库名称
-    private static final String URL = "jdbc:mysql://localhost:3306/socket_java_test";
+    private static final String URL = "jdbc:mysql://localhost:3306/your_database_name_please";
     // 登陆账号名，Base64编码
-    private static final String USER = "cm9vdA==";
+    private static final String USER = "your_username_please";
     // 账号的对应密码，Base64编码
-    private static final String PASSWORD = "Wmt3MDQwNTEw";
+    private static final String PASSWORD = "your_password_please";
     // 获得数据库名称
-    private static final String dbName = "socket_java_test";
+    private static final String dbName = "your_database_name_please";
 
     // 构造函数，加载MySQL驱动
     public DatabaseConnector() {
