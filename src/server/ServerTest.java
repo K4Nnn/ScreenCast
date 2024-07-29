@@ -3,6 +3,8 @@ package server;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.*;
@@ -13,7 +15,6 @@ import java.sql.*;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -83,16 +84,6 @@ class ClientHandler extends Thread {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        setupGUI();
-    }
-
-    private void setupGUI() {
-        frame = new JFrame("ScreenCast - Server");
-        label = new JLabel();
-        frame.getContentPane().add(label);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setSize(600, 450);
-        frame.setVisible(true);
     }
 
     public void run() {
@@ -113,33 +104,58 @@ class ClientHandler extends Thread {
         }
     }
 
+    private void setupGUI(int width, int height) {
+        frame = new JFrame("ScreenCast - Server");
+        label = new JLabel();
+        frame.getContentPane().add(label);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(width, height);
+        frame.setVisible(true);
+    }
+
     private void receiveAndDisplayScreen() {
         try {
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            double screenWidth = screenSize.getWidth();
+            double screenHeight = screenSize.getHeight();
             InputStream is = server.getInputStream();
-            byte[] buffer = new byte[8192];
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            // 接收图像
-            while (true) {
-                int bytesRead = is.read(buffer);
-                if (bytesRead == -1) break;
-                baos.write(buffer, 0, bytesRead);
-                if (baos.size() > 5000) {
-                    byte[] imageBytes = baos.toByteArray();
-                    ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-                    BufferedImage image = ImageIO.read(bais);
-                    if (image != null) {
-                        Image scaledImg = image.getScaledInstance(800, 450, Image.SCALE_SMOOTH);
-                        ImageIcon icon = new ImageIcon(scaledImg);
-                        label.setIcon(icon);
-                        frame.pack();
-                    }
-                    baos.reset();
+            DataInputStream dis = new DataInputStream(is);
+            setupGUI((int)screenWidth/2, (int)screenHeight/2);
+    
+            while ( !server.isClosed() ) {
+                int size = dis.readInt(); // 读取图像大小
+                byte[] imageBytes = new byte[size];
+                dis.readFully(imageBytes); // 确保读取完整的图像数据
+    
+                ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+                BufferedImage image = ImageIO.read(bais);
+                if (image != null) {
+                    // 确保图片的缩放比例不变
+                    int imgWidth = image.getWidth();
+                    int imgHeight = image.getHeight();
+                    double imgAspect = (double)imgWidth / imgHeight;
+                    int labWidth = label.getWidth();
+                    int labHeight = label.getHeight();
+                    double labAspect = (double)labWidth / labHeight;
+                    int showWidth = labWidth;
+                    int showHeight = labHeight;
+                    if( imgAspect < labAspect )
+                        showWidth = (int)(showHeight * imgAspect);
+                    else if ( imgAspect > labAspect)
+                        showHeight = (int)(showWidth / imgAspect);
+                    // 以正确de比例创建image
+                    Image scaledImg = image.getScaledInstance(showWidth, showHeight, Image.SCALE_SMOOTH);
+                    ImageIcon icon = new ImageIcon(scaledImg);
+                    label.setIcon(icon);
+                    frame.revalidate();
+                    frame.repaint();
                 }
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
+    }    
 
     // 生成RSA密钥对的方法
     private KeyPair generateRSAKeys() throws Exception {

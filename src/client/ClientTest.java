@@ -104,6 +104,7 @@ public class ClientTest {
       // 启动屏幕捕捉和传输线程
       screenCaptureSender = new ScreenCaptureSender(client);
       screenCaptureSender.start();
+      
    }
 
    private static JFrame createFrame(String name, int frame_width, int frame_height){
