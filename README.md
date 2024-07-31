@@ -32,5 +32,18 @@ Tip:1）在AES、RSA算法中。各密钥的存储都以Base64编码形式。即
 
         java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" client.ClientTest localhost 40101
 
+### 5、界面示例
+*登陆界面*
+![登陆界面](examples/登陆界面-示例.png "登录界面")
 
-剩余：状态码的register弹窗
+---
+*注册界面*
+![注册界面](examples/注册界面-示例.png "注册界面")
+
+---
+*客户端浮窗（运行时）*
+![客户端浮窗](examples/客户端浮窗-示例.png "客户端浮窗")
+
+---
+*服务器端界面*
+![服务器端界面](examples/屏幕投送-示例.png "Server界面")
