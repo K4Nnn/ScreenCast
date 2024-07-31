@@ -93,11 +93,14 @@ class ClientHandler extends Thread {
             int nonce = processEncryptedData(encryptedData);
             sendNonceToClient(nonce);
             String preMsg = receivePreMessage();
-            if (preMsg.equals("1"))
-                processLoginMsgFromClient(); //处理登录请求（if
-            else if (preMsg.equals("2"))
+            if (preMsg.equals("1")){
+                if( processLoginMsgFromClient() ) //处理登录请求（if
+                    receiveAndDisplayScreen();
+            }
+            else if (preMsg.equals("2")){
+                System.out.println("Ready to receive register data.");
                 processRegisterMsgFromClient();
-            receiveAndDisplayScreen();
+            }
             server.close();
         } catch (Exception e) {
             e.printStackTrace();
@@ -151,7 +154,6 @@ class ClientHandler extends Thread {
                     frame.repaint();
                 }
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -159,9 +161,9 @@ class ClientHandler extends Thread {
 
     // 生成RSA密钥对的方法
     private KeyPair generateRSAKeys() throws Exception {
-        cryptoRSA.generateKeyToFile(cryptoRSA.ALGORITHM, "rsa_public_key.txt", "rsa_private_key.txt");
-        PublicKey pubKey = cryptoRSA.loadPublicKeyFromFile(cryptoRSA.ALGORITHM, "rsa_public_key.txt");
-        PrivateKey priKey = cryptoRSA.loadPrivateKeyFromFile(cryptoRSA.ALGORITHM, "rsa_private_key.txt");
+        cryptoRSA.generateKeyToFile(cryptoRSA.ALGORITHM, "src/server/rsa_public_key.txt", "src/server/rsa_private_key.txt");
+        PublicKey pubKey = cryptoRSA.loadPublicKeyFromFile(cryptoRSA.ALGORITHM, "src/server/rsa_public_key.txt");
+        PrivateKey priKey = cryptoRSA.loadPrivateKeyFromFile(cryptoRSA.ALGORITHM, "src/server/rsa_private_key.txt");
         return new KeyPair(pubKey, priKey);
     }
 
@@ -214,10 +216,11 @@ class ClientHandler extends Thread {
     private String receivePreMessage() throws IOException, Exception{
         DataInputStream in = new DataInputStream(server.getInputStream());
         String preMsg = aesUtil.decryptAES(in.readUTF());
+        System.out.println("Server received: "+preMsg);
         return preMsg;
     }
 
-    private void processLoginMsgFromClient() throws IOException{
+    private boolean processLoginMsgFromClient() throws IOException{
         // 接收Client的输入
         DataInputStream in = new DataInputStream(server.getInputStream());
         DataOutputStream out = new DataOutputStream(server.getOutputStream());
@@ -225,6 +228,7 @@ class ClientHandler extends Thread {
         String encPwd = in.readUTF();
         String usr = null;
         String pwd = null;
+        boolean isLogin = false;
         try{
             usr = decryptDataByAES(encUsr, aesUtil);
             pwd = decryptDataByAES(encPwd, aesUtil);
@@ -241,7 +245,6 @@ class ClientHandler extends Thread {
 
                 // SQL查询语句
                 String query = "SELECT * FROM users";
-                boolean isLogin = false;
                 try(Statement statement = connection.createStatement(); // 创建Statement对象
                     ResultSet resultSet = statement.executeQuery(query)) { // 执行查询并获取结果集
                 
@@ -276,11 +279,95 @@ class ClientHandler extends Thread {
             System.out.println("Connection failed!"); // 连接失败
             e.printStackTrace(); // 处理连接异常
         }
+        return isLogin;
     }
 
-    private void processRegisterMsgFromClient(){
-
+    private boolean processRegisterMsgFromClient() throws IOException{
+        // 接收Client的输入
+        DataInputStream in = new DataInputStream(server.getInputStream());
+        DataOutputStream out = new DataOutputStream(server.getOutputStream());
+        System.out.println("Begin receiving usr and pwd.");
+        String encUsr = in.readUTF();
+        String encPwd = in.readUTF();
+        String usr = null;
+        String pwd = null;
+        boolean isRegistered = false;
+        
+        try{
+            usr = new String(Base64.getDecoder().decode(decryptDataByAES(encUsr, aesUtil)));
+            pwd = new String(Base64.getDecoder().decode(decryptDataByAES(encPwd, aesUtil)));
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        System.out.println("Successfully get usr and pwd.");
+        // 获取客户端IP地址
+        String clientIpAddress = server.getInetAddress().getHostAddress();
+        System.out.println("client's ipAd: "+clientIpAddress);
+        
+        // 默认不以明文存储，usr和pwd都是Base64编码形式
+        // 对接收的数据信息在数据库中验证是否重复
+        DatabaseConnector databaseConnector = new DatabaseConnector(); // 创建DatabaseConnector对象
+        try (Connection connection = databaseConnector.getConnection()) { // 获取数据库连接
+            if (connection != null) {
+                // 连接成功
+                System.out.println("Connected to the database: "+DatabaseConnector.getDatabaseName()+"!"); 
+    
+                // 检查用户名是否已经存在
+                String checkUsernameQuery = "SELECT COUNT(*) FROM users WHERE username = ?";
+                try (PreparedStatement checkUsernameStmt = connection.prepareStatement(checkUsernameQuery)) {
+                    checkUsernameStmt.setString(1, Base64.getEncoder().encodeToString(usr.getBytes()));
+                    try (ResultSet rs = checkUsernameStmt.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            // 用户名已存在
+                            System.out.println("Registration failed: Username exists!");
+                            String str_varify = Base64.getEncoder().encodeToString("401".getBytes());
+                            out.writeUTF(aesUtil.encryptAES(str_varify));
+                            return false;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+    
+                // 检查IP地址注册数量
+                String checkIpQuery = "SELECT COUNT(*) FROM users WHERE id = ?";
+                try (PreparedStatement checkIpStmt = connection.prepareStatement(checkIpQuery)) {
+                    checkIpStmt.setString(1, clientIpAddress);
+                    try (ResultSet rs = checkIpStmt.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) >= 5) {
+                            // IP地址注册次数超过限制
+                            System.out.println("Registration failed: IP limit exceeded!");
+                            String str_varify = Base64.getEncoder().encodeToString("403".getBytes());
+                            out.writeUTF(aesUtil.encryptAES(str_varify));
+                            return false;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+    
+                // 插入新的用户数据
+                String insertQuery = "INSERT INTO users (id, username, password) VALUES (?, ?, ?)";
+                try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
+                    insertStmt.setString(1, clientIpAddress);
+                    insertStmt.setString(2, usr);
+                    insertStmt.setString(3, pwd);
+                    insertStmt.executeUpdate();
+                    isRegistered = true;
+                    System.out.println("Registration successful for user: " + usr);
+                    String str_varify = Base64.getEncoder().encodeToString("250".getBytes());
+                    out.writeUTF(aesUtil.encryptAES(str_varify));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Connection failed!"); // 连接失败
+            e.printStackTrace(); // 处理连接异常
+        }
+        return isRegistered;
     }
+    
 
     private String decryptDataByAES(String encData, cryptoAES aesUtil) throws Exception{
         return aesUtil.decryptAES(encData);

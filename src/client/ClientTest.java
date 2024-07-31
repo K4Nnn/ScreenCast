@@ -18,6 +18,7 @@ public class ClientTest {
    private static int port;
    private static String in_username;
    private static String in_password;
+   private static String statusCode;
    private static ScreenCaptureSender screenCaptureSender;
    // private static boolean loginButtonClicked = false;
 
@@ -32,27 +33,22 @@ public class ClientTest {
       aesUtil.setKey(AESKey);
       aesUtil.setIV(AESiv);
 
-      LoginPanel loginPanel = new LoginPanel();
-      // 创建一个面板
-      JFrame loginFrame = createFrame("Login", 480, 360);
-      loginPanel.setSwitchButtonListener(new ActionListener() {
-         @Override
-            public void actionPerformed(ActionEvent e) {
-               try{
-                  runRegister(client, aesUtil);
-               } catch( Exception ex ){
-                  ex.printStackTrace();
-               }
-         }
-      });
-      loginFrame.getContentPane().add(loginPanel);
+      // 创建开始面板
+      BeginFrame beginFrame = new BeginFrame();
+      beginFrame.setVisible(true);
+      LoginPanel loginPanel = beginFrame.getLoginPanel();
+      RegisterPanel registerPanel = beginFrame.getRegisterPanel();
 
+      // 监听是否点击LoginButton or SwitchButton/Register Button
+      // 直到loginButton点击，并通过验证，才结束当前界面
       boolean isLoginPassed = false;
       boolean loginButtonClicked = false;
+      boolean registerButtonClicked = false;
       while( !isLoginPassed ){
-         // 当用户还未点击登录按钮时，阻塞程序
-         while ( !loginButtonClicked ) {
+         // 当用户还未点击login/register按钮时，阻塞程序
+         while ( !loginButtonClicked && !registerButtonClicked) {
             loginButtonClicked = loginPanel.getLoginClicked();
+            registerButtonClicked = registerPanel.getRegisterClicked();
             try {
                Thread.sleep(100); // Sleep to reduce CPU usage
             } catch (InterruptedException e) {
@@ -61,30 +57,59 @@ public class ClientTest {
                e.printStackTrace();
             }
          }
-         // 准备由client向server传送数据
-         try{
-            client = connectToServer(serverName, port);
-            verifyServer(client, aesUtil);
-            sendPreMessage("login", aesUtil);
-            in_username = loginPanel.getUsername();
-            in_password = loginPanel.getPassword();
-            isLoginPassed = startClient(in_username, in_password, client, aesUtil);
-            if( !isLoginPassed ){
-               // 弹窗：重新登录
-               JOptionPane.showMessageDialog(loginPanel, "Wrong Username or Password! Please try again.", 
-                     "Login Failed", JOptionPane.WARNING_MESSAGE);
-               loginButtonClicked = false;
+         // 判断是login/register传送数据
+         if( loginButtonClicked ){
+            try{
+               client = connectToServer(serverName, port);
+               verifyServer(client, aesUtil);
+               sendPreMessage("login", aesUtil);
+               in_username = loginPanel.getUsername();
+               in_password = loginPanel.getPassword();
+               isLoginPassed = startClient("login", in_username, in_password, client, aesUtil);
+               if( !isLoginPassed ){
+                  // 弹窗：重新登录
+                  JOptionPane.showMessageDialog(loginPanel, "Wrong Username or Password! Please try again.", 
+                        "Login Failed", JOptionPane.WARNING_MESSAGE);
+                  loginButtonClicked = false;
+               }
+               loginPanel.setLoginClicked(false);
+            } catch( IOException e ){
+               e.printStackTrace();
+            } catch( Exception e){
+               e.printStackTrace();
             }
-            loginPanel.setLoginClicked(false);
-         } catch( IOException e ){
-            e.printStackTrace();
-         } catch( Exception e){
-            e.printStackTrace();
+         }  else if( registerButtonClicked ){
+            try{
+               client = connectToServer(serverName, port);
+               verifyServer(client, aesUtil);
+               sendPreMessage("register", aesUtil);
+               in_username = registerPanel.getUsername();
+               in_password = registerPanel.getPassword();
+               registerButtonClicked = false;
+               registerPanel.setRegisterClicked(false);
+               boolean isRegisterPassed = startClient("register", in_username, in_password, client, aesUtil);
+               if( !isRegisterPassed ){
+                  // 弹窗：注册失败
+                  if( statusCode.equals("401"))
+                     JOptionPane.showMessageDialog(registerPanel, "Registration failed: Username exists!", "Register Failed", JOptionPane.WARNING_MESSAGE);
+                  else if( statusCode.equals("403"))
+                     JOptionPane.showMessageDialog(registerPanel, "Registration failed: IP limit exceeded!", "Register Failed", JOptionPane.WARNING_MESSAGE);
+                  else
+                     JOptionPane.showMessageDialog(registerPanel, "Registration failed. Please check your username and password.", "Register Failed", JOptionPane.WARNING_MESSAGE);
+               }else{
+                  JOptionPane.showMessageDialog(registerPanel, "Successfully registered.", 
+                        "Register Successfully", JOptionPane.INFORMATION_MESSAGE);
+               }
+            } catch( IOException e ){
+               e.printStackTrace();
+            } catch( Exception e){
+               e.printStackTrace();
+            }
          }
       }
       // 根据server返回结果判断是否转向新的界面
-      // 关闭原先的login界面
-      loginFrame.dispose();
+      // 关闭原先的开始界面
+      beginFrame.dispose();
       // 创建新的client主界面
       JFrame mainClientFrame = createFrame("ScreenCast", 300, 240);
       MainClientPanel mainClientPanel = new MainClientPanel();
@@ -129,49 +154,6 @@ public class ClientTest {
       System.out.println("Send premessage to server.");
    }
 
-   private static void runRegister(Socket client, cryptoAES aesUtil) throws IOException, Exception{
-      RegisterPanel registerPanel = new RegisterPanel();
-      JFrame registerFrame = createFrame("Register", 480, 360);
-      registerFrame.add(registerPanel);
-      boolean registerPassed = false;
-      while( !registerPassed ){
-         // 如果没点击button，阻塞
-         while( !registerPanel.getRegisterClicked() ){
-            try{
-               Thread.sleep(100);
-            } catch ( InterruptedException e){
-               e.printStackTrace();
-            }
-         };
-         // 点击button后进行处理逻辑
-         client = connectToServer(serverName, port);
-         verifyServer(client, aesUtil);
-         sendPreMessage("register", aesUtil);
-         String input_username = aesUtil.encryptAES(registerPanel.getName());
-         String input_password = aesUtil.encryptAES(registerPanel.getPassword());
-         OutputStream outToServer = client.getOutputStream();
-         DataOutputStream out = new DataOutputStream(outToServer);
-         out.writeUTF(input_username);
-         out.writeUTF(input_password);
-         System.out.println("Sent encrypted register message to Server.");
-         InputStream inFromServer = client.getInputStream();
-         DataInputStream in = new DataInputStream(inFromServer);
-         // 收到返回信息，解密
-         String receivedReturn = aesUtil.decryptAES(in.readUTF());
-         if( receivedReturn.equals("250")){
-            JOptionPane.showMessageDialog(registerPanel, "Successfully Register!", 
-                     "Register", JOptionPane.INFORMATION_MESSAGE);
-            registerPassed = true;
-            registerFrame.dispose();
-         } else if( receivedReturn.equals("401") ){
-            JOptionPane.showMessageDialog(registerPanel, "Some error emerged. Please try again.", 
-                     "Register Failed", JOptionPane.WARNING_MESSAGE);
-         }
-         client.close();
-         client = null;
-      }
-   }
-
    private static void verifyServer(Socket client, cryptoAES aesUtil) throws Exception{
       // 接收Server的RSA公钥
       String serverPublicKey = receiveServerPublicKey(client);
@@ -186,25 +168,30 @@ public class ClientTest {
       verifyServerResponse(client, aesUtil, nonce);
    }
 
-   private static boolean startClient(String input_username, String input_password, Socket client, cryptoAES aesUtil){
+   private static boolean startClient(String action, String input_username, String input_password, Socket client, cryptoAES aesUtil){
+      // 接收client程序login输入，传送至server
+      // 程序默认无明文存储，usr和pwd应至少以base64存储、传输
+      String in_username = Base64.getEncoder().encodeToString(input_username.getBytes());
+      String in_password = Base64.getEncoder().encodeToString(input_password.getBytes());
+      boolean result = false;
+
       try {
-         // 接收client程序login输入，传送至server
-         // 程序默认无明文存储，usr和pwd应至少以base64存储、传输
-         String in_username = Base64.getEncoder().encodeToString(input_username.getBytes());
-         String in_password = Base64.getEncoder().encodeToString(input_password.getBytes());
          in_username = encryptDataByAES(in_username, aesUtil);
          in_password = encryptDataByAES(in_password, aesUtil);
-         sendLoginInput(client, in_username, in_password);
-         System.out.println("------Initial Transmition Done.------");
-         // 接收server对login信息的反馈，信息都以base64存储
-         String loginReMsg = receiveLoginVerification(client, aesUtil);
-         return loginReMsg.equals(Base64.getEncoder().encodeToString("Passed".getBytes()));
-      } catch (IOException e) {
-         e.printStackTrace();
+         sendInfoInput(client, in_username, in_password);
+         System.out.println("------Initial Information Transmition Done.------");
+         // 接收server对login/register信息的反馈，信息都以base64存储
+         String responseMsg = receiveInfoVerification(client, aesUtil);
+         if( action.equals("login")){
+            result = responseMsg.equals(Base64.getEncoder().encodeToString("Passed".getBytes()));
+         }  else if( action.equals("register") ){
+            statusCode = responseMsg;
+            result = responseMsg.equals(Base64.getEncoder().encodeToString("250".getBytes()));
+         }
       } catch (Exception e) {
          e.printStackTrace();
       } 
-      return false;
+      return result;
    }
 
    private static Socket connectToServer(String serverName, int port) throws IOException {
@@ -284,15 +271,15 @@ public class ClientTest {
       }
    }
 
-   private static void sendLoginInput(Socket client, String encUsr, String encPwd) throws IOException {
+   private static void sendInfoInput(Socket client, String encUsr, String encPwd) throws IOException {
       OutputStream outToServer = client.getOutputStream();
       DataOutputStream out = new DataOutputStream(outToServer);
       out.writeUTF(encUsr);
       out.writeUTF(encPwd);
-      System.out.println("Sent encrypted login message to Server.");
+      System.out.println("Sent encrypted information to Server.");
    }
 
-   private static String receiveLoginVerification(Socket client, cryptoAES aesUtil) throws IOException, Exception{
+   private static String receiveInfoVerification(Socket client, cryptoAES aesUtil) throws IOException, Exception{
       InputStream inFromServer = client.getInputStream();
       DataInputStream in = new DataInputStream(inFromServer);
       String result = aesUtil.decryptAES(in.readUTF());

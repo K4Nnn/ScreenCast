@@ -9,6 +9,7 @@ public class RegisterPanel extends JPanel {
     private String usernameText;
     private String passwordText;
     private JButton registerButton;
+    private JButton switchButton;
     private JTextField usernameField;
     private JPasswordField passwordField;
     private JLabel themeLabel;
@@ -57,9 +58,17 @@ public class RegisterPanel extends JPanel {
         // 创建button，并设置监听事件
         registerButton = new JButton("Register");
         registerButton.addActionListener(new RegisterAction());
+        switchButton = new JButton("Switch to Login");
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(registerButton);
+        buttonPanel.add(switchButton);
 
         // button放置于BorderLayou.SOUTH
-        add(registerButton, BorderLayout.SOUTH);
+        add(buttonPanel, BorderLayout.SOUTH);
+    }
+
+    public void setSwitchButtonListener(ActionListener actionListener){
+        switchButton.addActionListener(actionListener);
     }
 
     public String getUsername() {
@@ -81,9 +90,13 @@ public class RegisterPanel extends JPanel {
     private class RegisterAction implements ActionListener{
         @Override
         public void actionPerformed(ActionEvent e) {
-            usernameText = usernameField.getText();
-            passwordText = new String(passwordField.getPassword());
-            isRegisterClicked = true;
+            String pwdField = new String(passwordField.getPassword());
+            String usrField = usernameField.getText();
+            if( !usrField.equals("") && !pwdField.equals("") ){
+                usernameText = usrField;
+                passwordText = pwdField;
+                isRegisterClicked = true;
+            }
         }
     }
 }
