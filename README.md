@@ -37,7 +37,7 @@ Tip:1）在AES、RSA算法中。各密钥的存储都以Base64编码形式。即
 
         java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" client.ClientTest localhost 40101
 
-3. 直接使用.jar文件
+3. 直接使用.jar文件<br>
     server端：
 
         java -jar ScreenCast-server.jar [CONNECTION_PORT]
