@@ -36,6 +36,20 @@ public class RegisterPanel extends JPanel {
         // 创建文本域、密码域对象
         usernameField = new JTextField(32);
         passwordField = new JPasswordField(32);
+        passwordField.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {}
+
+            @Override
+            public void keyReleased(KeyEvent e) {}
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if( e.getKeyChar() == KeyEvent.VK_ENTER ){
+                    registerButton.doClick();
+                }
+            }
+        });
         // 创建文本、密码对应标签
         usernameLabel = new JLabel("Username", JLabel.CENTER);
         passwordLabel = new JLabel("Password", JLabel.CENTER);
@@ -96,6 +110,9 @@ public class RegisterPanel extends JPanel {
                 usernameText = usrField;
                 passwordText = pwdField;
                 isRegisterClicked = true;
+            }else{
+                JOptionPane.showMessageDialog(RegisterPanel.this, "Username or Password can't be none! Please try again.", 
+                        "Register Failed", JOptionPane.WARNING_MESSAGE);
             }
         }
     }

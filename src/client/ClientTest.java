@@ -129,7 +129,6 @@ public class ClientTest {
       // 启动屏幕捕捉和传输线程
       screenCaptureSender = new ScreenCaptureSender(client);
       screenCaptureSender.start();
-      
    }
 
    private static JFrame createFrame(String name, int frame_width, int frame_height){
@@ -205,7 +204,7 @@ public class ClientTest {
       InputStream inFromServer = client.getInputStream();
       DataInputStream in = new DataInputStream(inFromServer);
       String serverPublicKey = in.readUTF();
-      System.out.println("Received Server Public Key: " + serverPublicKey);
+      System.out.println("Received Server Public Key. ");
       return serverPublicKey;
    }
 
@@ -223,7 +222,7 @@ public class ClientTest {
    private static String encryptAESKeyWithRSA(String serverPublicKey, String AESKey) throws Exception {
       String encData = cryptoRSA.encryptRSA(cryptoRSA.ALGORITHM, AESKey,
             (Key) cryptoRSA.loadPublicKeyFromString(cryptoRSA.ALGORITHM, serverPublicKey), cryptoRSA.MAX_ENCRYPT_SIZE);
-      System.out.println("Encrypted AES Key: " + encData);
+      System.out.println("Encrypted AES Key. ");
       return encData;
    }
 
@@ -233,7 +232,7 @@ public class ClientTest {
       byte[] keyBytes = new byte[4];
       randomFigure.nextBytes(keyBytes);
       int nonce = (keyBytes[0] & 0xff) | ((keyBytes[1] << 8) & 0xff00) | ((keyBytes[2] << 24) >>> 8) | (keyBytes[3] << 24);
-      System.out.println("Generated Nonce: " + nonce);
+      System.out.println("Generated Nonce. ");
       return nonce;
    }
 
@@ -254,13 +253,13 @@ public class ClientTest {
       DataInputStream in = new DataInputStream(inFromServer);
 
       String verifyNonce = in.readUTF();
-      System.out.println("The received data: " + verifyNonce);
+      // System.out.println("The received data: " + verifyNonce);
       // 拿AES会话密钥解密
       verifyNonce = aesUtil.decryptAES(verifyNonce);
-      System.out.println("The received Base64 nonce: " + verifyNonce);
+      // System.out.println("The received Base64 nonce: " + verifyNonce);
       // Base64逆编码
       verifyNonce = new String(Base64.getDecoder().decode(verifyNonce));
-      System.out.println("The server's nonce: "+verifyNonce);
+      // System.out.println("The server's nonce: "+verifyNonce);
       int verifyNonceInt = Integer.parseInt(verifyNonce);
       if (verifyNonceInt == nonce + 1)
          System.out.println("Receive from Server: the message:  " + verifyNonceInt + ". Verify passed.");
