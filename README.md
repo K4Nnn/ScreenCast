@@ -25,12 +25,25 @@ Tip:1）在AES、RSA算法中。各密钥的存储都以Base64编码形式。即
         javac -cp "lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar;src" -d bin -encoding UTF-8 src/server/*.java src/client/*.java src/cryptoUtils/*.java
 
 2. 运行命令：
+    （[CONNECTION_IP_ADDRESS]：欲连接IP地址；[CONNECTION_PORT]：欲连接端口号）
     server端：
 
-        java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" server.ServerTest 40101
+        java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" server.ServerTest [CONNECTION_PORT]
     client端：
 
+        java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" client.ClientTest [CONNECTION_IP_ADDRESS] [CONNECTION_PORT]
+
+    例如：
+
         java -cp "bin;lib/mysql-connector-j-9.0.0.jar;lib/jna-5.14.0.jar;lib/jna-platform-5.14.0.jar" client.ClientTest localhost 40101
+
+3. 直接使用.jar文件
+    server端：
+
+        java -jar ScreenCast-server.jar [CONNECTION_PORT]
+    client端：
+
+        java -jar ScreenCast-server.jar [CONNECTION_IP_ADDRESS] [CONNECTION_PORT]
 
 ### 5、界面示例
 *登陆界面*
